@@ -2,7 +2,6 @@ Board Game Collection & Play Tracker
 
 A personal catalog for the board games you own and a play log for the sessions you play. The project is intended to bring collection details, BoardGameGeek (BGG) information, players, results, and session notes together in one place.
 
-> **Project status:** Product scope and feature outline. Replace this note with the current implementation status as the application takes shape.
 
 ## Goals
 
