@@ -1,7 +1,39 @@
-Board Game Collection & Play Tracker
+# Board Game Collection & Play Tracker
 
-A personal catalog for the board games you own and a play log for the sessions you play. The project is intended to bring collection details, BoardGameGeek (BGG) information, players, results, and session notes together in one place.
+## Project overview
 
+This project is a personal catalog for board games and a play log for game sessions. It brings game details, BoardGameGeek (BGG) reference information, collection ownership, players, results, and session notes together in one place.
+
+The goal is to make it easy to answer questions like “What games do I own?”, “When did we last play this?”, and “Who played, and how did it go?” Game records can use BGG information to reduce manual entry, while collection and play records capture each user's own details and history.
+
+## Initial ERD
+
+The initial data model separates shared game information from personal collection and play history. `COLLECTION_ITEM` connects users to the games they own, while `PLAY_PARTICIPANT` connects each play session to the players and their results.
+
+![Initial ERD for the board game collection and play tracker](pics/erd-readable.png)
+
+## Rough system design
+
+The implementation stack has not been selected yet. This technology-neutral sketch shows the planned components and the main information flow; the specific web, API, and database technologies are **TBD**.
+
+```mermaid
+flowchart LR
+    Person([Collection owner / player])
+
+    subgraph App["Board Game Collection & Play Tracker"]
+        UI["Web interface<br/>Github Pages"]
+        API["Application / API<br/>Github Actions"]
+        DB[("Relational database<br/>Google Cloud")]
+    end
+
+    BGG["BoardGameGeek API"]
+
+    Person -->|"Search games, manage collection,<br/>log plays and review history"| UI
+    UI <-->|"Requests and results"| API
+    API <-->|"Read and save collection,<br/>players and play records"| DB
+    API -->|"Look up or import game details"| BGG
+    BGG -->|"Game reference information"| API
+```
 
 ## Goals
 
