@@ -8,6 +8,7 @@ const collectionMessage = document.querySelector("#collection-message");
 const grid = document.querySelector("#game-grid");
 const searchInput = document.querySelector("#game-search");
 const sortSelect = document.querySelector("#game-sort");
+const gameTypeFilter = document.querySelector("#game-type-filter");
 const catalogInput = document.querySelector("#catalog-query");
 const catalogStatus = document.querySelector("#catalog-status");
 const catalogResults = document.querySelector("#catalog-results");
@@ -16,6 +17,7 @@ let supabaseUrl;
 let anonKey;
 let currentUser;
 let games = [];
+let collectionGameTypes = new Map();
 let searchTimer;
 let activeSearch = 0;
 
@@ -41,6 +43,56 @@ async function supabaseGet(table, params) {
   return response.json();
 }
 
+async function loadCollectionGameTypes() {
+  const response = await fetch("./data/collection.csv", { cache: "no-store" });
+  if (!response.ok) throw new Error("Could not load collection game types.");
+  const rows = parseCsv(await response.text());
+  const headers = rows.shift()?.map((header) => header.trim().toLowerCase()) || [];
+  const idColumn = headers.indexOf("objectid");
+  const typeColumn = headers.indexOf("itemtype");
+  if (idColumn < 0 || typeColumn < 0) throw new Error("Collection CSV needs objectid and itemtype columns.");
+  collectionGameTypes = new Map(rows
+    .filter((row) => row[idColumn])
+    .map((row) => [String(row[idColumn]).trim(), (row[typeColumn] || "").trim().toLowerCase()]));
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const character = text[i];
+    if (quoted) {
+      if (character === '"' && text[i + 1] === '"') {
+        field += '"';
+        i += 1;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        field += character;
+      }
+    } else if (character === '"') {
+      quoted = true;
+    } else if (character === ",") {
+      row.push(field);
+      field = "";
+    } else if (character === "\n") {
+      row.push(field.replace(/\r$/, ""));
+      rows.push(row);
+      row = [];
+      field = "";
+    } else {
+      field += character;
+    }
+  }
+  if (field || row.length) {
+    row.push(field.replace(/\r$/, ""));
+    rows.push(row);
+  }
+  return rows;
+}
+
 function setLoading(loading) {
   loginButton.disabled = loading;
   loginButton.innerHTML = loading ? "Opening your shelf…" : 'View my collection <span aria-hidden="true">→</span>';
@@ -54,6 +106,7 @@ function showMessage(element, text, isError = false) {
 
 async function signIn(username) {
   await loadConfig();
+  await loadCollectionGameTypes();
   const users = await supabaseGet("user", {
     select: "user_id,username",
     username: `eq.${username}`,
@@ -72,6 +125,7 @@ async function signIn(username) {
     plays: Number(row.numplays || 0),
     dateAdded: row.date_added,
     ...(Array.isArray(row.game) ? row.game[0] : row.game),
+    game_type: collectionGameTypes.get(String(row.game_id)) || null,
   })).filter((game) => game.name);
   renderCollection();
   loginView.hidden = true;
@@ -149,7 +203,7 @@ function renderCatalogResults(results) {
       : "Player count not listed";
     const duration = game.manufacturer_playtime ? `${game.manufacturer_playtime} min` : "Time not listed";
     return `<article class="game-card catalog-card">
-      <div class="game-cover">${image}<span class="bgg-id">BGG #${game.game_id}</span></div>
+      <div class="game-cover">${image}</div>
       <div class="game-info">
         <p class="game-year">${game.year_published || "Year unknown"}</p>
         <h2>${escapeHtml(game.name)}</h2>
@@ -162,10 +216,21 @@ function renderCatalogResults(results) {
 function renderCollection() {
   const search = searchInput.value.trim().toLocaleLowerCase();
   const sortBy = sortSelect.value;
-  const filtered = games.filter((game) => game.name.toLocaleLowerCase().includes(search));
+  const selectedType = gameTypeFilter.value;
+  const filtered = games.filter((game) => {
+    const matchesSearch = game.name.toLocaleLowerCase().includes(search);
+    const matchesType = selectedType === "all"
+      || (selectedType === "base" && game.game_type === "standalone")
+      || (selectedType === "expansion" && game.game_type === "expansion")
+      || (selectedType === "unclassified" && !game.game_type);
+    return matchesSearch && matchesType;
+  });
   filtered.sort((a, b) => {
-    if (sortBy === "plays") return b.plays - a.plays || a.name.localeCompare(b.name);
-    if (sortBy === "year") return (b.year_published || 0) - (a.year_published || 0) || a.name.localeCompare(b.name);
+    if (sortBy === "plays_asc") return a.plays - b.plays || a.name.localeCompare(b.name);
+    if (sortBy === "plays_desc") return b.plays - a.plays || a.name.localeCompare(b.name);
+    if (sortBy === "year_asc") return (a.year_published || 0) - (b.year_published || 0) || a.name.localeCompare(b.name);
+    if (sortBy === "year_desc") return (b.year_published || 0) - (a.year_published || 0) || a.name.localeCompare(b.name);
+    if (sortBy === "name_desc") return b.name.localeCompare(a.name);
     return a.name.localeCompare(b.name);
   });
 
@@ -244,4 +309,5 @@ catalogInput.addEventListener("input", () => {
 
 searchInput.addEventListener("input", renderCollection);
 sortSelect.addEventListener("change", renderCollection);
+gameTypeFilter.addEventListener("change", renderCollection);
 
