@@ -1,5 +1,6 @@
 const loginView = document.querySelector("#login-view");
 const collectionView = document.querySelector("#collection-view");
+const gameSearchView = document.querySelector("#game-search-view");
 const loginForm = document.querySelector("#login-form");
 const loginButton = document.querySelector("#login-button");
 const loginError = document.querySelector("#login-error");
@@ -7,11 +8,16 @@ const collectionMessage = document.querySelector("#collection-message");
 const grid = document.querySelector("#game-grid");
 const searchInput = document.querySelector("#game-search");
 const sortSelect = document.querySelector("#game-sort");
+const catalogInput = document.querySelector("#catalog-query");
+const catalogStatus = document.querySelector("#catalog-status");
+const catalogResults = document.querySelector("#catalog-results");
 
 let supabaseUrl;
 let anonKey;
 let currentUser;
 let games = [];
+let searchTimer;
+let activeSearch = 0;
 
 async function loadConfig() {
   const response = await fetch("./config.public.json", { cache: "no-store" });
@@ -70,6 +76,87 @@ async function signIn(username) {
   renderCollection();
   loginView.hidden = true;
   collectionView.hidden = false;
+}
+
+function openCatalogSearch() {
+  collectionView.hidden = true;
+  gameSearchView.hidden = false;
+  catalogInput.value = "";
+  catalogResults.innerHTML = "";
+  showMessage(catalogStatus, "Start typing to search games.");
+  catalogInput.focus();
+}
+
+function normalizeTitle(value) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase().trim();
+}
+
+function titleSimilarity(title, query) {
+  const normalizedTitle = normalizeTitle(title);
+  if (normalizedTitle === query) return 0;
+  if (normalizedTitle.startsWith(query)) return 1;
+  if (normalizedTitle.split(/\s+/).some((word) => word.startsWith(query))) return 2;
+  if (normalizedTitle.includes(query)) return 3;
+  return 4;
+}
+
+async function searchCatalog(rawQuery) {
+  const query = rawQuery.trim();
+  const requestId = ++activeSearch;
+  catalogResults.innerHTML = "";
+  if (query.length < 2) {
+    showMessage(catalogStatus, "Type at least two characters to search.");
+    return;
+  }
+
+  showMessage(catalogStatus, "Searching the game catalog…");
+  try {
+    const matches = await supabaseGet("game", {
+      select: "game_id,name,year_published,min_players,max_players,manufacturer_playtime,image_url",
+      name: `ilike.%${query}%`,
+      order: "name.asc",
+      limit: "80",
+    });
+    if (requestId !== activeSearch) return;
+
+    const normalizedQuery = normalizeTitle(query);
+    matches.sort((a, b) =>
+      titleSimilarity(a.name, normalizedQuery) - titleSimilarity(b.name, normalizedQuery)
+      || a.name.length - b.name.length
+      || a.name.localeCompare(b.name)
+    );
+    renderCatalogResults(matches.slice(0, 12));
+    showMessage(catalogStatus, matches.length
+      ? `Showing the best ${Math.min(matches.length, 12)} results from up to ${matches.length} title matches. Adding games to your collection will be enabled after authentication is set up.`
+      : "No matching titles found. Try another search.");
+  } catch (error) {
+    if (requestId !== activeSearch) return;
+    showMessage(catalogStatus, error.message || "Could not search the catalog.", true);
+  }
+}
+
+function renderCatalogResults(results) {
+  if (!results.length) {
+    catalogResults.innerHTML = "";
+    return;
+  }
+  catalogResults.innerHTML = results.map((game) => {
+    const image = game.image_url
+      ? `<img src="${escapeHtml(game.image_url)}" alt="" loading="lazy" />`
+      : '<span class="cover-placeholder" aria-hidden="true">🎲</span>';
+    const players = game.min_players && game.max_players
+      ? `${game.min_players}–${game.max_players} players`
+      : "Player count not listed";
+    const duration = game.manufacturer_playtime ? `${game.manufacturer_playtime} min` : "Time not listed";
+    return `<article class="game-card catalog-card">
+      <div class="game-cover">${image}<span class="bgg-id">BGG #${game.game_id}</span></div>
+      <div class="game-info">
+        <p class="game-year">${game.year_published || "Year unknown"}</p>
+        <h2>${escapeHtml(game.name)}</h2>
+        <p class="game-meta">${players}<span aria-hidden="true"> · </span>${duration}</p>
+      </div>
+    </article>`;
+  }).join("");
 }
 
 function renderCollection() {
@@ -140,6 +227,19 @@ document.querySelector("#sign-out").addEventListener("click", () => {
   collectionView.hidden = true;
   loginView.hidden = false;
   loginForm.querySelector("input").focus();
+});
+
+document.querySelector("#open-game-search").addEventListener("click", openCatalogSearch);
+document.querySelector("#back-to-collection").addEventListener("click", () => {
+  activeSearch += 1;
+  clearTimeout(searchTimer);
+  gameSearchView.hidden = true;
+  collectionView.hidden = false;
+});
+catalogInput.addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const query = catalogInput.value;
+  searchTimer = setTimeout(() => searchCatalog(query), 250);
 });
 
 searchInput.addEventListener("input", renderCollection);

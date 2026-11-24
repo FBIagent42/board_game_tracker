@@ -41,7 +41,10 @@
             <h1 id="collection-title">Collection</h1>
             <p id="welcome-user" class="intro"></p>
           </div>
-          <button id="sign-out" class="button-secondary" type="button">Sign out</button>
+          <div class="heading-actions">
+            <button id="open-game-search" class="button-primary" type="button">Add game to collection <span aria-hidden="true">+</span></button>
+            <button id="sign-out" class="button-secondary" type="button">Sign out</button>
+          </div>
         </div>
 
         <div class="stats-row" aria-label="Collection summary">
@@ -66,6 +69,22 @@
 
         <p id="collection-message" class="message" role="status" hidden></p>
         <div id="game-grid" class="game-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="game-search-view" class="search-view" aria-labelledby="game-search-title" hidden>
+        <div class="search-heading">
+          <button id="back-to-collection" class="back-button" type="button"><span aria-hidden="true">←</span> Back to collection</button>
+          <p class="eyebrow">Game catalog</p>
+          <h1 id="game-search-title">Find a game</h1>
+          <p class="intro">Search the catalog by game title. Results update as you type.</p>
+        </div>
+        <label class="catalog-search" for="catalog-query">
+          <span aria-hidden="true">⌕</span>
+          <input id="catalog-query" type="search" placeholder="Try “Catan” or “Wingspan”" autocomplete="off" />
+          <span class="search-shortcut" aria-hidden="true">SEARCH</span>
+        </label>
+        <p id="catalog-status" class="message" role="status" aria-live="polite">Start typing to search games.</p>
+        <div id="catalog-results" class="game-grid catalog-grid" aria-live="polite"></div>
       </section>
     </main>
 
