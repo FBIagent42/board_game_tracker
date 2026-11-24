@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f3ef" />
+    <meta name="description" content="Browse your board game collection." />
+    <title>Game Shelf — Board Game Collection</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Game Shelf home">
+        <span class="brand-mark" aria-hidden="true">GS</span>
+        <span>Game Shelf</span>
+      </a>
+      <span class="header-note">Your collection, at a glance</span>
+    </header>
+
+    <main>
+      <section id="login-view" class="login-view" aria-labelledby="welcome-title">
+        <div class="login-copy">
+          <p class="eyebrow">A home for game night</p>
+          <h1 id="welcome-title">Find your next<br />favorite from the shelf.</h1>
+          <p class="intro">Sign in with your username to browse the games in your collection.</p>
+        </div>
+        <form id="login-form" class="login-card">
+          <label for="username">Username</label>
+          <input id="username" name="username" autocomplete="username" required placeholder="Enter your username" />
+          <button id="login-button" type="submit">View my collection <span aria-hidden="true">→</span></button>
+          <p class="form-note">Username-only demo sign-in. Passwords can be added later.</p>
+          <p id="login-error" class="message error" role="alert" hidden></p>
+        </form>
+      </section>
+
+      <section id="collection-view" class="collection-view" aria-labelledby="collection-title" hidden>
+        <div class="collection-heading">
+          <div>
+            <p class="eyebrow">Your library</p>
+            <h1 id="collection-title">Collection</h1>
+            <p id="welcome-user" class="intro"></p>
+          </div>
+          <button id="sign-out" class="button-secondary" type="button">Sign out</button>
+        </div>
+
+        <div class="stats-row" aria-label="Collection summary">
+          <article class="stat-card"><span class="stat-label">Games owned</span><strong id="game-count">—</strong></article>
+          <article class="stat-card"><span class="stat-label">Plays recorded</span><strong id="play-count">—</strong></article>
+          <article class="stat-card"><span class="stat-label">Showing</span><strong id="showing-count">—</strong></article>
+        </div>
+
+        <div class="toolbar">
+          <label class="search-box" for="game-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="game-search" type="search" placeholder="Search your games" />
+          </label>
+          <label class="sort-control" for="game-sort">Sort by
+            <select id="game-sort">
+              <option value="name">Name</option>
+              <option value="plays">Most played</option>
+              <option value="year">Year published</option>
+            </select>
+          </label>
+        </div>
+
+        <p id="collection-message" class="message" role="status" hidden></p>
+        <div id="game-grid" class="game-grid" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer><span>Game Shelf</span><span>Game reference data: <a href="https://boardgamegeek.com/" target="_blank" rel="noreferrer">BoardGameGeek</a></span></footer>
+  </body>
+</html>

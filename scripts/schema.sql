@@ -59,3 +59,14 @@ create index if not exists game_mechanic_name_idx on public.game_mechanic(mechan
 create index if not exists game_subcategory_name_idx on public.game_subcategory(subcategory_name);
 create index if not exists game_theme_name_idx on public.game_theme(theme_name);
 grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage on schema public to anon;
+grant select on table public.game, public."user", public.user_collection to anon;
+alter table public.game enable row level security;
+alter table public."user" enable row level security;
+alter table public.user_collection enable row level security;
+drop policy if exists website_read_games on public.game;
+create policy website_read_games on public.game for select to anon using (true);
+drop policy if exists website_read_users on public."user";
+create policy website_read_users on public."user" for select to anon using (true);
+drop policy if exists website_read_collection on public.user_collection;
+create policy website_read_collection on public.user_collection for select to anon using (user_id = 1);
