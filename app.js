@@ -8,7 +8,9 @@ const collectionMessage = document.querySelector("#collection-message");
 const grid = document.querySelector("#game-grid");
 const searchInput = document.querySelector("#game-search");
 const sortSelect = document.querySelector("#game-sort");
+const collectionExpansionFilter = document.querySelector("#collection-expansion-filter");
 const catalogInput = document.querySelector("#catalog-query");
+const catalogExpansionFilter = document.querySelector("#catalog-expansion-filter");
 const catalogStatus = document.querySelector("#catalog-status");
 const catalogResults = document.querySelector("#catalog-results");
 
@@ -79,7 +81,7 @@ async function signIn(username) {
 
   currentUser = users[0];
   const rows = await supabaseGet("user_collection", {
-    select: "game_id,numplays,own,date_added,game:game(name,year_published,min_players,max_players,manufacturer_playtime,image_url)",
+    select: "game_id,numplays,own,date_added,game:game(name,year_published,min_players,max_players,manufacturer_playtime,image_url,is_expansion)",
     user_id: `eq.${currentUser.user_id}`,
     own: "eq.true",
   });
@@ -116,6 +118,12 @@ function titleSimilarity(title, query) {
   if (normalizedTitle.split(/\s+/).some((word) => word.startsWith(query))) return 2;
   if (normalizedTitle.includes(query)) return 3;
   return 4;
+}
+
+function filterGamesByExpansion(gameList, filter) {
+  if (filter === "expansions") return gameList.filter((game) => game.is_expansion === true);
+  if (filter === "base") return gameList.filter((game) => game.is_expansion === false);
+  return gameList;
 }
 
 function needsBggData(game) {
@@ -185,12 +193,15 @@ async function searchCatalog(rawQuery) {
 
   showMessage(catalogStatus, "Searching the game catalog…");
   try {
-    const matches = await supabaseGet("game", {
-      select: "game_id,name,description,year_published,game_weight,min_players,max_players,manufacturer_playtime,community_min_playtime,community_max_playtime,manufacturer_age_rec,image_url,bgg_last_checked_at",
+    const searchParams = {
+      select: "game_id,name,is_expansion,description,year_published,game_weight,min_players,max_players,manufacturer_playtime,community_min_playtime,community_max_playtime,manufacturer_age_rec,image_url,bgg_last_checked_at",
       name: `ilike.%${query}%`,
       order: "name.asc",
       limit: "80",
-    });
+    };
+    if (catalogExpansionFilter.value === "expansions") searchParams.is_expansion = "eq.true";
+    if (catalogExpansionFilter.value === "base") searchParams.is_expansion = "eq.false";
+    const matches = await supabaseGet("game", searchParams);
     if (requestId !== activeSearch) return;
 
     const normalizedQuery = normalizeTitle(query);
@@ -199,7 +210,8 @@ async function searchCatalog(rawQuery) {
       || a.name.length - b.name.length
       || a.name.localeCompare(b.name)
     );
-    const visibleMatches = matches.slice(0, 25);
+    const expansionMatches = matches;
+    const visibleMatches = expansionMatches.slice(0, 25);
     renderCatalogResults(visibleMatches);
     const incompleteMatches = visibleMatches.filter(needsBggData);
     if (incompleteMatches.length) {
@@ -208,10 +220,10 @@ async function searchCatalog(rawQuery) {
         BGG_ENRICHMENT_DELAY_MS,
       );
     }
-    showMessage(catalogStatus, matches.length
+    showMessage(catalogStatus, expansionMatches.length
       ? incompleteMatches.length
-        ? `Showing the best ${Math.min(matches.length, 25)} results from up to ${matches.length} title matches. Missing BGG details load if you stay on this search for 5 seconds.`
-        : `Showing the best ${Math.min(matches.length, 25)} results from up to ${matches.length} title matches. Adding games to your collection will be enabled after authentication is set up.`
+        ? `Showing ${Math.min(expansionMatches.length, 25)} of ${expansionMatches.length} title matches. Missing BGG details load if you stay on this search for 5 seconds.`
+        : `Showing ${Math.min(expansionMatches.length, 25)} of ${expansionMatches.length} title matches. Adding games to your collection will be enabled after authentication is set up.`
       : "No matching titles found. Try another search.");
   } catch (error) {
     if (requestId !== activeSearch) return;
@@ -246,7 +258,8 @@ function renderCatalogResults(results) {
 function renderCollection() {
   const search = searchInput.value.trim().toLocaleLowerCase();
   const sortBy = sortSelect.value;
-  const filtered = games.filter((game) => game.name.toLocaleLowerCase().includes(search));
+  const searched = games.filter((game) => game.name.toLocaleLowerCase().includes(search));
+  const filtered = filterGamesByExpansion(searched, collectionExpansionFilter.value);
   filtered.sort((a, b) => {
     if (sortBy === "plays_asc") return a.plays - b.plays || a.name.localeCompare(b.name);
     if (sortBy === "plays_desc") return b.plays - a.plays || a.name.localeCompare(b.name);
@@ -334,4 +347,9 @@ catalogInput.addEventListener("input", () => {
 
 searchInput.addEventListener("input", renderCollection);
 sortSelect.addEventListener("change", renderCollection);
+collectionExpansionFilter.addEventListener("change", renderCollection);
+catalogExpansionFilter.addEventListener("change", () => {
+  clearTimeout(searchTimer);
+  searchCatalog(catalogInput.value);
+});
 

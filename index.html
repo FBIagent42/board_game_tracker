@@ -68,6 +68,13 @@
               <option value="year_desc">Newest year</option>
             </select>
           </label>
+          <label class="sort-control" for="collection-expansion-filter">Show
+            <select id="collection-expansion-filter">
+              <option value="all">All games</option>
+              <option value="expansions">Expansions</option>
+              <option value="base">Base games</option>
+            </select>
+          </label>
         </div>
 
         <p id="collection-message" class="message" role="status" hidden></p>
@@ -86,6 +93,15 @@
           <input id="catalog-query" type="search" placeholder="Try “Catan” or “Wingspan”" autocomplete="off" />
           <span class="search-shortcut" aria-hidden="true">SEARCH</span>
         </label>
+        <div class="catalog-toolbar">
+          <label class="sort-control" for="catalog-expansion-filter">Show
+            <select id="catalog-expansion-filter">
+              <option value="all">All games</option>
+              <option value="expansions">Expansions</option>
+              <option value="base">Base games</option>
+            </select>
+          </label>
+        </div>
         <p id="catalog-status" class="message" role="status" aria-live="polite">Start typing to search games.</p>
         <div id="catalog-results" class="game-grid catalog-grid" aria-live="polite"></div>
       </section>
