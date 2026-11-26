@@ -17,7 +17,23 @@ let anonKey;
 let currentUser;
 let games = [];
 let searchTimer;
+let enrichmentTimer;
 let activeSearch = 0;
+
+const BGG_ENRICHMENT_DELAY_MS = 5000;
+const BGG_CHECK_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+const CORE_GAME_FIELDS = [
+  "image_url",
+  "description",
+  "year_published",
+  "game_weight",
+  "min_players",
+  "max_players",
+  "manufacturer_playtime",
+  "community_min_playtime",
+  "community_max_playtime",
+  "manufacturer_age_rec",
+];
 
 async function loadConfig() {
   const response = await fetch("./config.public.json", { cache: "no-store" });
@@ -79,6 +95,8 @@ async function signIn(username) {
 }
 
 function openCatalogSearch() {
+  activeSearch += 1;
+  clearTimeout(enrichmentTimer);
   collectionView.hidden = true;
   gameSearchView.hidden = false;
   catalogInput.value = "";
@@ -100,7 +118,63 @@ function titleSimilarity(title, query) {
   return 4;
 }
 
+function needsBggData(game) {
+  const incomplete = CORE_GAME_FIELDS.some((field) =>
+    game[field] === null || game[field] === undefined
+      || (typeof game[field] === "string" && game[field].trim() === "")
+  );
+  if (!incomplete) return false;
+  if (!game.bgg_last_checked_at) return true;
+  const lastChecked = Date.parse(game.bgg_last_checked_at);
+  return !Number.isFinite(lastChecked) || Date.now() - lastChecked >= BGG_CHECK_COOLDOWN_MS;
+}
+
+async function enrichMissingGames(targetGames, query, requestId) {
+  const ids = targetGames.filter(needsBggData).map((game) => game.game_id);
+  if (!ids.length) return;
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/bgg-enrich`, {
+      method: "POST",
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ game_ids: ids }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const retrySeconds = response.headers.get("Retry-After");
+      if (requestId === activeSearch && catalogInput.value.trim() === query) {
+        showMessage(
+          catalogStatus,
+          retrySeconds
+            ? "BGG requests are busy. Missing details will be tried again on your next search."
+            : (result.error || "Could not update missing BGG details right now."),
+          true,
+        );
+      }
+      return;
+    }
+    if (requestId !== activeSearch || catalogInput.value.trim() !== query) return;
+
+    const updatedById = new Map((result.games || []).map((game) => [Number(game.game_id), game]));
+    const updatedResults = targetGames.map((game) => ({ ...game, ...(updatedById.get(Number(game.game_id)) || {}) }));
+    renderCatalogResults(updatedResults);
+    if (result.enriched) {
+      showMessage(catalogStatus, `Loaded BGG details for ${result.enriched} game${result.enriched === 1 ? "" : "s"}.`);
+    } else {
+      showMessage(catalogStatus, "Search results are up to date.");
+    }
+  } catch (error) {
+    if (requestId !== activeSearch || catalogInput.value.trim() !== query) return;
+    showMessage(catalogStatus, error.message || "Could not update missing BGG details right now.", true);
+  }
+}
+
 async function searchCatalog(rawQuery) {
+  clearTimeout(enrichmentTimer);
   const query = rawQuery.trim();
   const requestId = ++activeSearch;
   catalogResults.innerHTML = "";
@@ -112,7 +186,7 @@ async function searchCatalog(rawQuery) {
   showMessage(catalogStatus, "Searching the game catalog…");
   try {
     const matches = await supabaseGet("game", {
-      select: "game_id,name,year_published,min_players,max_players,manufacturer_playtime,image_url",
+      select: "game_id,name,description,year_published,game_weight,min_players,max_players,manufacturer_playtime,community_min_playtime,community_max_playtime,manufacturer_age_rec,image_url,bgg_last_checked_at",
       name: `ilike.%${query}%`,
       order: "name.asc",
       limit: "80",
@@ -125,9 +199,19 @@ async function searchCatalog(rawQuery) {
       || a.name.length - b.name.length
       || a.name.localeCompare(b.name)
     );
-    renderCatalogResults(matches.slice(0, 12));
+    const visibleMatches = matches.slice(0, 25);
+    renderCatalogResults(visibleMatches);
+    const incompleteMatches = visibleMatches.filter(needsBggData);
+    if (incompleteMatches.length) {
+      enrichmentTimer = setTimeout(
+        () => enrichMissingGames(visibleMatches, query, requestId),
+        BGG_ENRICHMENT_DELAY_MS,
+      );
+    }
     showMessage(catalogStatus, matches.length
-      ? `Showing the best ${Math.min(matches.length, 12)} results from up to ${matches.length} title matches. Adding games to your collection will be enabled after authentication is set up.`
+      ? incompleteMatches.length
+        ? `Showing the best ${Math.min(matches.length, 25)} results from up to ${matches.length} title matches. Missing BGG details load if you stay on this search for 5 seconds.`
+        : `Showing the best ${Math.min(matches.length, 25)} results from up to ${matches.length} title matches. Adding games to your collection will be enabled after authentication is set up.`
       : "No matching titles found. Try another search.");
   } catch (error) {
     if (requestId !== activeSearch) return;
@@ -236,11 +320,14 @@ document.querySelector("#open-game-search").addEventListener("click", openCatalo
 document.querySelector("#back-to-collection").addEventListener("click", () => {
   activeSearch += 1;
   clearTimeout(searchTimer);
+  clearTimeout(enrichmentTimer);
   gameSearchView.hidden = true;
   collectionView.hidden = false;
 });
 catalogInput.addEventListener("input", () => {
+  activeSearch += 1;
   clearTimeout(searchTimer);
+  clearTimeout(enrichmentTimer);
   const query = catalogInput.value;
   searchTimer = setTimeout(() => searchCatalog(query), 250);
 });
