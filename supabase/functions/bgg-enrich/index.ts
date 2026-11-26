@@ -78,42 +78,118 @@ function numericValue(value: string | null | undefined, integer = false): number
   return integer ? Math.trunc(parsed) : parsed;
 }
 
-function readValue(item: Element, selector: string): string | null {
-  return item.querySelector(selector)?.getAttribute("value") ?? null;
+type XmlNode = {
+  name: string;
+  attributes: Record<string, string>;
+  children: XmlNode[];
+  text: string;
+};
+
+function decodeXml(value: string): string {
+  return value.replace(/&(#x[\da-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (entity, name: string) => {
+    const normalized = name.toLowerCase();
+    if (normalized === "amp") return "&";
+    if (normalized === "lt") return "<";
+    if (normalized === "gt") return ">";
+    if (normalized === "quot") return '"';
+    if (normalized === "apos") return "'";
+    const codePoint = normalized.startsWith("#x")
+      ? Number.parseInt(normalized.slice(2), 16)
+      : Number.parseInt(normalized.slice(1), 10);
+    try {
+      return String.fromCodePoint(codePoint);
+    } catch {
+      return entity;
+    }
+  });
+}
+
+function parseXml(xmlText: string): XmlNode {
+  const root: XmlNode = { name: "#document", attributes: {}, children: [], text: "" };
+  const stack = [root];
+  const tokens = xmlText.match(/<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[^>]+>|[^<]+/g) ?? [];
+
+  for (const token of tokens) {
+    if (token.startsWith("<!--") || token.startsWith("<?") || /^<!DOCTYPE\b/i.test(token)) continue;
+    if (token.startsWith("<![CDATA[")) {
+      stack[stack.length - 1].text += token.slice(9, -3);
+      continue;
+    }
+    if (token.startsWith("</")) {
+      const closingName = token.slice(2, -1).trim();
+      const node = stack.pop();
+      if (!node || node === root || node.name !== closingName) {
+        throw new Error("BGG returned invalid XML.");
+      }
+      stack[stack.length - 1].text += node.text;
+      continue;
+    }
+    if (token.startsWith("<")) {
+      const match = token.match(/^<([\w:.-]+)([\s\S]*?)\/?>(?:\s*)$/);
+      if (!match) throw new Error("BGG returned invalid XML.");
+      const [, name, rawAttributes] = match;
+      const attributes: Record<string, string> = {};
+      const attributePattern = /([\w:.-]+)\s*=\s*("[^"]*"|'[^']*')/g;
+      for (const attribute of rawAttributes.matchAll(attributePattern)) {
+        attributes[attribute[1]] = decodeXml(attribute[2].slice(1, -1));
+      }
+      const node: XmlNode = { name, attributes, children: [], text: "" };
+      stack[stack.length - 1].children.push(node);
+      if (!/\/>$/.test(token)) stack.push(node);
+      continue;
+    }
+    stack[stack.length - 1].text += decodeXml(token);
+  }
+
+  if (stack.length !== 1) throw new Error("BGG returned invalid XML.");
+  return root;
+}
+
+function child(node: XmlNode, name: string): XmlNode | undefined {
+  return node.children.find((candidate) => candidate.name === name);
+}
+
+function value(node: XmlNode | undefined): string | null {
+  return node?.attributes.value ?? null;
 }
 
 function parseBggItems(xmlText: string): Map<number, Record<string, unknown>> {
-  const document = new DOMParser().parseFromString(xmlText, "application/xml");
-  if (document.querySelector("parsererror")) throw new Error("BGG returned invalid XML.");
-
+  const document = parseXml(xmlText);
+  const items = child(document, "items");
+  if (!items) throw new Error("BGG returned invalid XML.");
   const result = new Map<number, Record<string, unknown>>();
-  for (const item of Array.from(document.querySelectorAll("items > item"))) {
-    const gameId = numericValue(item.getAttribute("id"), true);
+  for (const item of items.children.filter((candidate) => candidate.name === "item")) {
+    const gameId = numericValue(item.attributes.id, true);
     if (!gameId) continue;
 
-    const names = Array.from(item.querySelectorAll(":scope > name"));
-    const primaryName = names.find((name) => name.getAttribute("type") === "primary")
-      ?.getAttribute("value") ?? names[0]?.getAttribute("value") ?? null;
-    const ratings = item.querySelector("statistics > ratings");
-    const image = item.querySelector(":scope > image")?.textContent?.trim() || null;
-    const thumbnail = item.querySelector(":scope > thumbnail")?.textContent?.trim() || null;
-    const description = item.querySelector(":scope > description")?.textContent?.trim() || null;
+    const names = item.children.filter((candidate) => candidate.name === "name");
+    const primaryName = names.find((name) => name.attributes.type === "primary")
+      ?.attributes.value ?? names[0]?.attributes.value ?? null;
+    const statistics = child(item, "statistics");
+    const ratings = statistics ? child(statistics, "ratings") : undefined;
+    const averageWeight = ratings ? child(ratings, "averageweight") : undefined;
+    const average = ratings ? child(ratings, "average") : undefined;
+    const bayesAverage = ratings ? child(ratings, "bayesaverage") : undefined;
+    const image = child(item, "image")?.text.trim() || null;
+    const thumbnail = child(item, "thumbnail")?.text.trim() || null;
+    const description = child(item, "description")?.text.trim() || null;
+    const itemValue = (name: string) => value(child(item, name));
 
     result.set(gameId, {
       game_id: gameId,
-      is_expansion: item.getAttribute("type") === "boardgameexpansion",
+      is_expansion: item.attributes.type === "boardgameexpansion",
       name: primaryName,
       description,
-      year_published: numericValue(readValue(item, ":scope > yearpublished"), true),
-      game_weight: numericValue(ratings?.querySelector(":scope > averageweight")?.getAttribute("value")),
-      avg_rating: numericValue(ratings?.querySelector(":scope > average")?.getAttribute("value")),
-      bayes_avg_rating: numericValue(ratings?.querySelector(":scope > bayesaverage")?.getAttribute("value")),
-      min_players: numericValue(readValue(item, ":scope > minplayers"), true),
-      max_players: numericValue(readValue(item, ":scope > maxplayers"), true),
-      manufacturer_playtime: numericValue(readValue(item, ":scope > playingtime"), true),
-      community_min_playtime: numericValue(readValue(item, ":scope > minplaytime"), true),
-      community_max_playtime: numericValue(readValue(item, ":scope > maxplaytime"), true),
-      manufacturer_age_rec: numericValue(readValue(item, ":scope > minage"), true),
+      year_published: numericValue(itemValue("yearpublished"), true),
+      game_weight: numericValue(value(averageWeight)),
+      avg_rating: numericValue(value(average)),
+      bayes_avg_rating: numericValue(value(bayesAverage)),
+      min_players: numericValue(itemValue("minplayers"), true),
+      max_players: numericValue(itemValue("maxplayers"), true),
+      manufacturer_playtime: numericValue(itemValue("playingtime"), true),
+      community_min_playtime: numericValue(itemValue("minplaytime"), true),
+      community_max_playtime: numericValue(itemValue("maxplaytime"), true),
+      manufacturer_age_rec: numericValue(itemValue("minage"), true),
       image_url: image || thumbnail,
     });
   }
