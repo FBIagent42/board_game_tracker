@@ -1,5 +1,6 @@
 ﻿create table if not exists public.game (
   game_id bigint primary key,
+  is_expansion boolean,
   name text not null,
   description text,
   year_published integer,
@@ -17,6 +18,7 @@
   image_url text,
   bgg_url text generated always as ('https://boardgamegeek.com/boardgame/' || game_id::text) stored
 );
+alter table public.game add column if not exists is_expansion boolean;
 create table if not exists public.mechanic (
   name text primary key
 );

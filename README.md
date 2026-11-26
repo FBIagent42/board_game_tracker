@@ -89,3 +89,15 @@ Potential views and summaries include:
 
 BGG is the source for external game reference data; the collection and play history are personal records owned by this application. A game should retain its BGG identifier and link when one is available, so imported information can be matched to the correct listing and revisited later.
 
+### BGG API scripts
+
+The local scripts read `BGG_KEY` from `config.secret.json` (or the `BGG_KEY` environment variable). Keep that file private.
+
+- Fetch one example: `python scripts/scrape_bgg.py --ids 224517 --output data/bgg_sample.jsonl`
+- Scrape IDs from `data/boardgames_ranks.csv`: `python scripts/scrape_bgg.py`
+- Update recent publication years in Supabase: `python scripts/update_from_bgg.py --recent-years 2`
+
+The scraper saves the API's XML fields as JSON Lines, including ratings/ranks, player and time recommendations, categories, mechanics, designers, artists, publishers, families, and implementations. It requests up to 20 games per API call and waits at least five seconds between calls. It resumes by skipping IDs already present in the output. `--include-versions` adds edition/version data and can make the output much larger.
+
+BGG's documented API does not provide a supported “added since” or publication date-range filter. The recent-year updater therefore filters the local ranks CSV by `yearpublished`; to discover newly listed games, that CSV must be refreshed first. A full scrape of the current 183k-ID snapshot would take at least about 12.7 hours at the required request interval, before retries and processing.
+

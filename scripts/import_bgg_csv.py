@@ -38,6 +38,17 @@ def number(value: str | None, integer: bool = False) -> int | float | None:
         return None
 
 
+def nullable_bool(value: str | None) -> bool | None:
+    if value is None or not value.strip():
+        return None
+    normalized = value.strip().lower()
+    if normalized in {"1", "1.0", "true", "t", "yes"}:
+        return True
+    if normalized in {"0", "0.0", "false", "f", "no"}:
+        return False
+    return None
+
+
 def csv_rows(filename: str):
     with (DATA / filename).open("r", encoding="utf-8-sig", newline="") as file:
         yield from csv.DictReader(file)
@@ -92,6 +103,7 @@ class SupabaseRest:
 def import_games(db: SupabaseRest) -> int:
     fields: dict[str, tuple[str, bool]] = {
         "game_id": ("BGGId", True),
+        "is_expansion": ("IsExpansion", True),
         "name": ("Name", False),
         "description": ("Description", False),
         "year_published": ("YearPublished", True),
@@ -113,7 +125,9 @@ def import_games(db: SupabaseRest) -> int:
         (
             {
                 column: (
-                    number(source.get(input_name), integer)
+                    nullable_bool(source.get(input_name))
+                    if column == "is_expansion"
+                    else number(source.get(input_name), integer)
                     if integer or column not in {"name", "description", "best_players", "image_url"}
                     else (source.get(input_name) or None)
                 )
