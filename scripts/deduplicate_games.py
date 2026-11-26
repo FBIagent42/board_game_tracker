@@ -1,4 +1,4 @@
-"""Merge rows with identical game titles and prepare an ID keeper map."""
+"""Merge duplicate rows for the same BGG ID without collapsing distinct games."""
 
 from __future__ import annotations
 
@@ -225,8 +225,10 @@ def main() -> None:
         fields = reader.fieldnames or []
         groups: dict[str, list[dict[str, str]]] = defaultdict(list)
         for row in reader:
-            title = (row.get("name") or "").strip()
-            key = title.casefold() if title else f"__missing_title__:{row.get('game_id', '')}"
+            game_id = (row.get("game_id") or "").strip()
+            if not game_id:
+                raise ValueError("Every source row must have a game_id.")
+            key = game_id
             groups[key].append(row)
 
     keeper_rows: list[dict[str, str]] = []
@@ -250,16 +252,8 @@ def main() -> None:
                 elif current and candidate and current != candidate:
                     conflict_count += 1
         keeper_rows.append(keeper)
-        for duplicate in ordered[1:]:
-            id_map.append(
-                {
-                    "retained_game_id": keeper["game_id"],
-                    "removed_game_id": duplicate["game_id"],
-                    "title": keeper.get("name", ""),
-                    "retained_missing_before_merge": str(missing_count(ordered[0], fields)),
-                    "removed_missing": str(missing_count(duplicate, fields)),
-                }
-            )
+        # All rows in this group share the same primary key, so no database ID
+        # needs to be deleted or remapped when their blank fields are merged.
 
     keeper_rows.sort(key=lambda row: int(row["game_id"]))
     args.output.parent.mkdir(parents=True, exist_ok=True)

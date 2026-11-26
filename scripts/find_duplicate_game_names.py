@@ -44,7 +44,10 @@ def main() -> None:
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8-sig", newline="") as output:
-        fields = ["normalized_title", "match_type", "group_size", "game_id", "name", "is_expansion"]
+        fields = [
+            "normalized_title", "match_type", "group_size", "game_id", "name",
+            "year_published", "is_expansion",
+        ]
         writer = csv.DictWriter(output, fieldnames=fields)
         writer.writeheader()
         for key, group in sorted(normalized_duplicates.items()):
@@ -58,6 +61,7 @@ def main() -> None:
                         "group_size": len(group),
                         "game_id": row["game_id"],
                         "name": row["name"],
+                        "year_published": row.get("year_published", ""),
                         "is_expansion": row.get("is_expansion", ""),
                     }
                 )
