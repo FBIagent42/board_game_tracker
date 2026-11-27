@@ -1,14 +1,19 @@
 const loginView = document.querySelector("#login-view");
 const collectionView = document.querySelector("#collection-view");
 const gameSearchView = document.querySelector("#game-search-view");
+const signupView = document.querySelector("#signup-view");
 const loginForm = document.querySelector("#login-form");
+const signupForm = document.querySelector("#signup-form");
 const loginButton = document.querySelector("#login-button");
 const loginError = document.querySelector("#login-error");
-const signUpEmailFields = document.querySelector("#sign-up-email-fields");
-const authUsernameInput = document.querySelector("#auth-username");
+const signupButton = document.querySelector("#signup-button");
+const signupError = document.querySelector("#signup-error");
+const loginUsernameInput = document.querySelector("#login-username");
+const loginPasswordInput = document.querySelector("#login-password");
+const signupUsernameInput = document.querySelector("#signup-username");
 const signupEmailInput = document.querySelector("#signup-email");
-const passwordInput = document.querySelector("#password");
-const authNote = document.querySelector("#auth-note");
+const signupPasswordInput = document.querySelector("#signup-password");
+const usernameStatus = document.querySelector("#username-status");
 const collectionMessage = document.querySelector("#collection-message");
 const grid = document.querySelector("#game-grid");
 const searchInput = document.querySelector("#game-search");
@@ -33,10 +38,10 @@ let configPromise;
 let currentSession;
 let currentUser;
 let games = [];
-let authMode = "sign-in";
 let searchTimer;
 let enrichmentTimer;
 let activeSearch = 0;
+let usernameCheckTimer;
 
 const BGG_ENRICHMENT_DELAY_MS = 5000;
 const BGG_CHECK_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -91,9 +96,7 @@ async function supabaseGet(table, params) {
 
 function setLoading(loading) {
   loginButton.disabled = loading;
-  loginButton.innerHTML = loading
-    ? (authMode === "sign-up" ? "Creating account…" : "Signing in…")
-    : `${authMode === "sign-up" ? "Create account" : "Sign in"} <span aria-hidden="true">→</span>`;
+  loginButton.innerHTML = loading ? "Signing in…" : 'Sign in <span aria-hidden="true">→</span>';
 }
 
 function showMessage(element, text, isError = false) {
@@ -128,6 +131,7 @@ async function openUserSession(session) {
 
   currentUser = users[0];
   await loadCollection();
+  signupView.hidden = true;
   loginView.hidden = true;
   collectionView.hidden = false;
 }
@@ -317,45 +321,56 @@ async function addGameToCollection(gameId, button) {
   }
 }
 
-function setAuthMode(mode) {
-  authMode = mode;
-  const isSignUp = mode === "sign-up";
-  signUpEmailFields.hidden = !isSignUp;
-  signupEmailInput.required = isSignUp;
-  authUsernameInput.placeholder = isSignUp ? "Choose a username" : "Your username";
-  passwordInput.autocomplete = isSignUp ? "new-password" : "current-password";
-  document.querySelector("#auth-sign-in-mode").classList.toggle("active", !isSignUp);
-  document.querySelector("#auth-sign-up-mode").classList.toggle("active", isSignUp);
-  document.querySelector("#auth-sign-in-mode").setAttribute("aria-pressed", String(!isSignUp));
-  document.querySelector("#auth-sign-up-mode").setAttribute("aria-pressed", String(isSignUp));
-  loginButton.innerHTML = `${isSignUp ? "Create account" : "Sign in"} <span aria-hidden="true">→</span>`;
-  authNote.textContent = isSignUp
-    ? "Email is required by Supabase. Email confirmation is disabled; sign in with your username and password."
-    : "Sign in with your Game Shelf username and password.";
-  showMessage(loginError, "");
+function showSignupView() {
+  loginView.hidden = true;
+  collectionView.hidden = true;
+  gameSearchView.hidden = true;
+  signupView.hidden = false;
+  showMessage(signupError, "");
+  signupUsernameInput.focus();
 }
 
-async function submitAuthForm() {
-  await loadConfig();
-  const username = authUsernameInput.value.trim();
-  const password = passwordInput.value;
-  if (authMode === "sign-up") {
-    const email = signupEmailInput.value.trim();
-    const { data, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { username },
-      },
-    });
-    if (error) throw error;
-    if (data.session) {
-      await openUserSession(data.session);
-      return;
-    }
-    throw new Error("Supabase did not start a session. Check that email confirmation is disabled in Supabase Auth.");
-  }
+function showSigninView() {
+  signupView.hidden = true;
+  collectionView.hidden = true;
+  gameSearchView.hidden = true;
+  loginView.hidden = false;
+  showMessage(loginError, "");
+  loginUsernameInput.focus();
+}
 
+async function isUsernameAvailable(username) {
+  await loadConfig();
+  const { data, error } = await supabaseClient.rpc("is_username_available", { p_username: username });
+  if (error) throw error;
+  return data === true;
+}
+
+async function updateUsernameAvailability() {
+  clearTimeout(usernameCheckTimer);
+  const username = signupUsernameInput.value.trim();
+  showMessage(usernameStatus, "");
+  if (!username) return;
+  if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) {
+    showMessage(usernameStatus, "Use 3–32 letters, numbers, dots, underscores, or hyphens.", true);
+    return;
+  }
+  showMessage(usernameStatus, "Checking username…");
+  usernameCheckTimer = setTimeout(async () => {
+    try {
+      const available = await isUsernameAvailable(username);
+      if (signupUsernameInput.value.trim() !== username) return;
+      showMessage(usernameStatus, available ? "Username is available." : "That username is already taken.", !available);
+    } catch (error) {
+      showMessage(usernameStatus, "Could not check username availability. It will be checked when you create the account.", true);
+    }
+  }, 300);
+}
+
+async function submitSignin() {
+  await loadConfig();
+  const username = loginUsernameInput.value.trim();
+  const password = loginPasswordInput.value;
   const response = await fetch(`${supabaseUrl}/functions/v1/username-sign-in`, {
     method: "POST",
     headers: {
@@ -372,6 +387,40 @@ async function submitAuthForm() {
     refresh_token: result.refresh_token,
   });
   if (error) throw error;
+  await openUserSession(data.session);
+}
+
+async function submitSignup() {
+  await loadConfig();
+  const username = signupUsernameInput.value.trim();
+  const email = signupEmailInput.value.trim();
+  const password = signupPasswordInput.value;
+  if (!/^[A-Za-z0-9_.-]{3,32}$/.test(username)) {
+    throw new Error("Username must be 3–32 letters, numbers, dots, underscores, or hyphens.");
+  }
+  if (password.length < 8) throw new Error("Password must be at least 8 characters.");
+
+  if (!(await isUsernameAvailable(username))) {
+    throw new Error("That username is already taken. Please choose another.");
+  }
+
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { username } },
+  });
+  if (error) {
+    if (/already registered|already exists|user exists/i.test(error.message)) {
+      throw new Error("That email may already be in use. Try signing in or use a different email.");
+    }
+    throw error;
+  }
+  if (data.user?.identities?.length === 0) {
+    throw new Error("That email may already be in use. Try signing in or use a different email.");
+  }
+  if (!data.session) {
+    throw new Error("Account created, but no session was returned. Check the Supabase email confirmation setting.");
+  }
   await openUserSession(data.session);
 }
 
@@ -493,12 +542,13 @@ function showLoginView() {
   currentSession = null;
   currentUser = null;
   games = [];
-  loginForm.reset();
   searchInput.value = "";
   collectionView.hidden = true;
   gameSearchView.hidden = true;
+  signupView.hidden = true;
   loginView.hidden = false;
-  setAuthMode("sign-in");
+  loginForm.reset();
+  showMessage(loginError, "");
 }
 
 loginForm.addEventListener("submit", async (event) => {
@@ -506,7 +556,7 @@ loginForm.addEventListener("submit", async (event) => {
   showMessage(loginError, "");
   setLoading(true);
   try {
-    await submitAuthForm();
+    await submitSignin();
   } catch (error) {
     showMessage(loginError, error.message || "Could not sign in.", true);
   } finally {
@@ -514,8 +564,35 @@ loginForm.addEventListener("submit", async (event) => {
   }
 });
 
-document.querySelector("#auth-sign-in-mode").addEventListener("click", () => setAuthMode("sign-in"));
-document.querySelector("#auth-sign-up-mode").addEventListener("click", () => setAuthMode("sign-up"));
+signupForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  showMessage(signupError, "");
+  signupButton.disabled = true;
+  signupButton.textContent = "Creating account…";
+  try {
+    await submitSignup();
+  } catch (error) {
+    showMessage(signupError, error.message || "Could not create your account.", true);
+  } finally {
+    signupButton.disabled = false;
+    signupButton.innerHTML = 'Create account <span aria-hidden="true">→</span>';
+  }
+});
+
+document.querySelector("#open-signup").addEventListener("click", showSignupView);
+document.querySelector("#back-to-signin").addEventListener("click", showSigninView);
+signupUsernameInput.addEventListener("input", updateUsernameAvailability);
+document.querySelector(".brand").addEventListener("click", (event) => {
+  event.preventDefault();
+  if (currentSession && currentUser) {
+    signupView.hidden = true;
+    gameSearchView.hidden = true;
+    loginView.hidden = true;
+    collectionView.hidden = false;
+  } else {
+    showSigninView();
+  }
+});
 document.querySelector("#sign-out").addEventListener("click", async () => {
   if (supabaseClient) await supabaseClient.auth.signOut();
   showLoginView();

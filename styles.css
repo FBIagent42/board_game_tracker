@@ -32,6 +32,8 @@ h1, h2, p { margin-top: 0; }
 .login-copy h1, .collection-heading h1 { margin-bottom: 21px; font: 700 clamp(40px, 5.5vw, 66px)/1.06 'Playfair Display', Georgia, serif; letter-spacing: -.04em; }
 .intro { max-width: 420px; margin-bottom: 0; color: var(--muted); font-size: 16px; line-height: 1.7; }
 .login-card { padding: 32px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 16px 48px rgba(39,54,43,.06); }
+.login-card h2 { margin: 0 0 7px; font: 700 27px 'Playfair Display', Georgia, serif; }
+.auth-card-copy { margin: 0 0 22px; color: var(--muted); font-size: 13px; line-height: 1.5; }
 .auth-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px; margin-bottom: 22px; border-radius: 8px; background: #eeeee8; }
 .auth-mode { min-height: 36px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 600; }
 .auth-mode.active { color: var(--green-dark); background: var(--surface); box-shadow: 0 1px 4px rgba(39,54,43,.1); }
@@ -42,6 +44,17 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rg
 .login-card button:hover { background: var(--green-dark); transform: translateY(-1px); }
 .login-card button:disabled { opacity: .65; cursor: wait; }
 .form-note { margin: 16px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.signup-prompt { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 12px; }
+.signup-prompt p { margin: 0; color: var(--muted); }
+.login-card .text-button { width: auto; height: auto; margin: 0; padding: 3px; display: inline; border: 0; color: var(--green); background: transparent; font-size: 12px; font-weight: 700; }
+.login-card .text-button:hover { color: var(--green-dark); background: transparent; transform: none; text-decoration: underline; }
+.field-status { min-height: 15px; margin: -10px 0 15px; color: var(--muted); font-size: 11px; }
+.field-status.error { color: #a84236; }
+.auth-back { display: inline-block; margin: 0 0 18px; }
+.login-card .auth-back { width: auto; height: auto; margin: 0 0 18px; padding: 0; display: inline-block; border: 0; color: var(--green); background: transparent; font-size: 12px; font-weight: 600; }
+.login-card .auth-back:hover { color: var(--green-dark); background: transparent; transform: none; }
+.signup-view .login-card { align-self: center; }
+.bgg-connection-status { color: var(--muted); font-size: 12px; }
 .message { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
 .message.error { color: #a84236; }
 
@@ -120,6 +133,7 @@ footer { min-height: 66px; padding: 16px clamp(22px, 6vw, 88px); display: flex; 
   .login-view { min-height: auto; grid-template-columns: 1fr; gap: 34px; padding: 70px 0; }
   .login-copy h1 { font-size: 46px; }
   .login-card { padding: 24px; }
+  .signup-prompt { flex-wrap: wrap; }
   .collection-view { padding: 42px 0 65px; }
   .collection-heading { align-items: flex-start; flex-direction: column; }
   .collection-heading .intro { font-size: 12px; }
