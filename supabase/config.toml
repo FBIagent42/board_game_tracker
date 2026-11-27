@@ -1,2 +1,8 @@
 [functions.bgg-enrich]
 verify_jwt = true
+
+[functions.bgg-import-collection]
+verify_jwt = true
+
+[functions.username-sign-in]
+verify_jwt = false

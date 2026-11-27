@@ -32,8 +32,11 @@ h1, h2, p { margin-top: 0; }
 .login-copy h1, .collection-heading h1 { margin-bottom: 21px; font: 700 clamp(40px, 5.5vw, 66px)/1.06 'Playfair Display', Georgia, serif; letter-spacing: -.04em; }
 .intro { max-width: 420px; margin-bottom: 0; color: var(--muted); font-size: 16px; line-height: 1.7; }
 .login-card { padding: 32px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); box-shadow: 0 16px 48px rgba(39,54,43,.06); }
+.auth-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px; margin-bottom: 22px; border-radius: 8px; background: #eeeee8; }
+.auth-mode { min-height: 36px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; font-size: 12px; font-weight: 600; }
+.auth-mode.active { color: var(--green-dark); background: var(--surface); box-shadow: 0 1px 4px rgba(39,54,43,.1); }
 .login-card label { display: block; margin: 0 0 9px; font-size: 13px; font-weight: 600; }
-.login-card input { width: 100%; height: 49px; padding: 0 14px; border: 1px solid #d8dbd3; border-radius: 8px; outline: none; background: white; }
+.login-card input, .import-dialog input { width: 100%; height: 49px; margin-bottom: 17px; padding: 0 14px; border: 1px solid #d8dbd3; border-radius: 8px; outline: none; background: white; }
 input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(53,93,73,.12); }
 .login-card button { width: 100%; height: 49px; margin-top: 16px; padding: 0 17px; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 8px; color: white; background: var(--green); font-weight: 600; transition: background .15s, transform .15s; }
 .login-card button:hover { background: var(--green-dark); transform: translateY(-1px); }
@@ -47,11 +50,13 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rg
 .collection-heading h1 { margin-bottom: 8px; font-size: clamp(39px, 5vw, 54px); }
 .collection-heading .intro { font-size: 14px; }
 .heading-actions { display: flex; align-items: center; gap: 9px; }
+.bgg-connection-status { color: var(--muted); font-size: 10px; }
 .button-primary { min-height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 14px; border: 0; border-radius: 7px; color: white; background: var(--green); font-size: 12px; font-weight: 600; }
 .button-primary:hover { background: var(--green-dark); }
 .button-primary span { font-size: 18px; font-weight: 400; }
 .button-secondary { padding: 10px 15px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: var(--surface); font-size: 12px; font-weight: 600; }
 .button-secondary:hover { border-color: var(--green); color: var(--green); }
+.button-secondary:disabled, .button-primary:disabled { opacity: .65; cursor: wait; }
 .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 34px; }
 .stat-card { min-height: 102px; padding: 20px 22px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .stat-label { color: var(--muted); font-size: 11px; }
@@ -88,9 +93,19 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rg
 .catalog-search > span:first-child { font-size: 23px; }
 .catalog-search input { flex: 1; min-width: 0; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 15px; }
 .search-shortcut { padding: 5px 7px; border: 1px solid var(--line); border-radius: 4px; color: #969b96; font-size: 8px; letter-spacing: .08em; }
+.import-dialog { width: min(440px, calc(100% - 32px)); padding: 30px; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); background: var(--surface); box-shadow: 0 24px 90px rgba(20,30,23,.25); }
+.import-dialog::backdrop { background: rgba(27,36,30,.48); backdrop-filter: blur(2px); }
+.import-dialog h2 { margin-bottom: 10px; font: 700 27px 'Playfair Display', Georgia, serif; }
+.import-dialog .intro { margin-bottom: 21px; font-size: 13px; }
+.import-dialog label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.dialog-actions .button-primary { min-height: 40px; }
 .search-view > .message { min-height: 20px; margin: 15px 2px 18px; }
 .catalog-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .catalog-card .game-cover { height: 195px; }
+.add-game-button { width: 100%; min-height: 36px; margin-top: 14px; border: 1px solid var(--green); border-radius: 7px; color: var(--green-dark); background: #f7faf6; font-size: 11px; font-weight: 700; }
+.add-game-button:hover:not(:disabled) { color: white; background: var(--green); }
+.add-game-button:disabled { border-color: var(--line); color: var(--muted); background: #f1f1eb; cursor: default; }
 .bgg-id { position: absolute; left: 10px; bottom: 10px; padding: 6px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 20px; color: #fff; background: rgba(31,43,35,.78); font-size: 9px; }
 footer { min-height: 66px; padding: 16px clamp(22px, 6vw, 88px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }
 
@@ -108,7 +123,8 @@ footer { min-height: 66px; padding: 16px clamp(22px, 6vw, 88px); display: flex; 
   .collection-view { padding: 42px 0 65px; }
   .collection-heading { align-items: flex-start; flex-direction: column; }
   .collection-heading .intro { font-size: 12px; }
-  .heading-actions { width: 100%; justify-content: space-between; }
+  .heading-actions { width: 100%; flex-wrap: wrap; justify-content: space-between; }
+  .bgg-connection-status { flex: 1 0 100%; }
   .button-secondary { flex: 0 0 auto; }
   .stats-row { gap: 8px; }
   .stat-card { min-height: 85px; padding: 14px 12px; }

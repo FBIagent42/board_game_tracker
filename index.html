@@ -7,6 +7,7 @@
     <meta name="description" content="Browse your board game collection." />
     <title>Game Shelf — Board Game Collection</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="app.js" defer></script>
   </head>
   <body>
@@ -23,13 +24,23 @@
         <div class="login-copy">
           <p class="eyebrow">A home for game night</p>
           <h1 id="welcome-title">Find your next<br />favorite from the shelf.</h1>
-          <p class="intro">Sign in with your username to browse the games in your collection.</p>
+        <p class="intro">Sign in to manage your collection, or create an account to get started.</p>
         </div>
         <form id="login-form" class="login-card">
-          <label for="username">Username</label>
-          <input id="username" name="username" autocomplete="username" required placeholder="Enter your username" />
-          <button id="login-button" type="submit">View my collection <span aria-hidden="true">→</span></button>
-          <p class="form-note">Username-only demo sign-in. Passwords can be added later.</p>
+          <div class="auth-modes" role="group" aria-label="Account action">
+            <button id="auth-sign-in-mode" type="button" class="auth-mode active" aria-pressed="true">Sign in</button>
+            <button id="auth-sign-up-mode" type="button" class="auth-mode" aria-pressed="false">Create account</button>
+          </div>
+          <label for="auth-username">Username</label>
+          <input id="auth-username" name="username" autocomplete="username" minlength="3" maxlength="32" pattern="[A-Za-z0-9_.-]{3,32}" required placeholder="Choose a username" />
+          <div id="sign-up-email-fields" hidden>
+            <label for="signup-email">Email</label>
+            <input id="signup-email" name="email" type="email" autocomplete="email" placeholder="you@example.com" />
+          </div>
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="At least 8 characters" />
+          <button id="login-button" type="submit">Sign in <span aria-hidden="true">→</span></button>
+          <p id="auth-note" class="form-note">Sign in with your Game Shelf username and password.</p>
           <p id="login-error" class="message error" role="alert" hidden></p>
         </form>
       </section>
@@ -42,6 +53,9 @@
             <p id="welcome-user" class="intro"></p>
           </div>
           <div class="heading-actions">
+            <span id="bgg-connection-status" class="bgg-connection-status">BGG not connected</span>
+            <button id="connect-bgg" class="button-secondary" type="button">Connect BGG</button>
+            <button id="import-bgg-collection" class="button-secondary" type="button" disabled>Import BGG collection</button>
             <button id="open-game-search" class="button-primary" type="button">Add game to collection <span aria-hidden="true">+</span></button>
             <button id="sign-out" class="button-secondary" type="button">Sign out</button>
           </div>
@@ -106,6 +120,21 @@
         <div id="catalog-results" class="game-grid catalog-grid" aria-live="polite"></div>
       </section>
     </main>
+
+  <dialog id="bgg-import-dialog" class="import-dialog">
+    <form id="bgg-connection-form">
+      <p class="eyebrow">BoardGameGeek</p>
+      <h2>Connect BGG</h2>
+      <p class="intro">Save your BGG username so Game Shelf can import its public collection. This does not sign in to BGG or request your BGG password.</p>
+      <label for="bgg-username">BGG username</label>
+      <input id="bgg-username" name="bgg-username" autocomplete="off" required placeholder="Your BoardGameGeek username" />
+      <p id="bgg-import-status" class="message" role="status" aria-live="polite" hidden></p>
+      <div class="dialog-actions">
+        <button id="cancel-bgg-import" class="button-secondary" type="button">Cancel</button>
+        <button id="save-bgg-username" class="button-primary" type="submit">Save BGG username</button>
+      </div>
+    </form>
+  </dialog>
 
     <footer><span>Game Shelf</span><span>Game reference data: <a href="https://boardgamegeek.com/" target="_blank" rel="noreferrer">BoardGameGeek</a></span></footer>
   </body>
