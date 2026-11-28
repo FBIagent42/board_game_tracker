@@ -308,7 +308,8 @@ Deno.serve(async (request) => {
       enrichment_warning: enrichmentWarning,
     });
   } catch (error) {
-    console.error("BGG collection import failed:", error instanceof Error ? error.message : "unknown error");
-    return jsonResponse({ error: "Could not import the BGG collection. Check that the collection is public and try again." }, 502);
+    const detail = error instanceof Error ? error.message : "Unknown import error.";
+    console.error("BGG collection import failed:", detail);
+    return jsonResponse({ error: `BGG collection import failed: ${detail}` }, 502);
   }
 });

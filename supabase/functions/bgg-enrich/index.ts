@@ -369,7 +369,8 @@ Deno.serve(async (request) => {
     return jsonResponse({ enriched: enrichedIds.length, games });
   } catch (error) {
     if (error instanceof Response) return error;
-    console.error("BGG enrichment failed:", error instanceof Error ? error.message : "unknown error");
-    return jsonResponse({ error: "Could not update missing BoardGameGeek data right now." }, 502);
+    const detail = error instanceof Error ? error.message : "Unknown enrichment error.";
+    console.error("BGG enrichment failed:", detail);
+    return jsonResponse({ error: `Could not update missing BoardGameGeek data: ${detail}` }, 502);
   }
 });
