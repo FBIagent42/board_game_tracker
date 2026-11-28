@@ -7,4 +7,5 @@
 | 11/25/2026 | Added api key and pulled larger database | 1.5   |
 | 11/26/2026 | Added automatic data collection and filters for expantions | 3.0   |
 | 11/26/2026 | Fixed Deduplication errors | 0.5   |
+| 11/27/2026 | Added User authentication, updates to personal collection, and mass collection pull from BGG | 3.0   |
 | **Total** |                           | **8.0** |
